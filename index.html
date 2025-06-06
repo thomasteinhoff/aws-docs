@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Upload de Currículo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #eef2f3, #8e9eab);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+    }
+    h2 {
+      margin-bottom: 1.5rem;
+      color: #333;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      text-align: left;
+      color: #555;
+    }
+    input[type="email"], 
+    input[type="file"] {
+      width: 100%;
+      padding: 0.8rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 0.8rem;
+      background-color: #2b7a78;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-top: 0.5rem;
+    }
+    button:hover {
+      background-color: #205e5c;
+    }
+    #status {
+      margin-top: 1rem;
+      color: #333;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Envie seu currículo em PDF</h2>
+    <form id="upload-form">
+      <label for="email">Email:</label>
+      <input type="email" id="email" name="email" required>
+      
+      <label for="fileInput">Currículo (PDF):</label>
+      <input type="file" id="fileInput" name="file" accept=".pdf" required>
+      
+      <button type="submit">Enviar</button>
+    </form>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('upload-form');
+    
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const statusDiv = document.getElementById('status');
+      statusDiv.innerText = '';
+      
+      const file = document.getElementById('fileInput').files[0];
+      const email = document.getElementById('email').value;
+      
+      if (!file || !email) {
+        statusDiv.innerText = "Preencha todos os campos.";
+        return;
+      }
+
+      try {
+        const res = await fetch("https://SUA_API_GATEWAY/presigned-url", {
+          method: "POST",
+          body: JSON.stringify({ 
+            filename: file.name,
+            email: email
+          }),
+          headers: { "Content-Type": "application/json" }
+        });
+
+        if (!res.ok) throw new Error("Erro ao obter a URL.");
+
+        const { url } = await res.json();
+
+        const uploadRes = await fetch(url, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": "application/pdf" }
+        });
+
+        if (!uploadRes.ok) throw new Error("Erro no upload para o S3.");
+
+        statusDiv.innerText = "Arquivo enviado com sucesso!";
+      } catch (error) {
+        statusDiv.innerText = "Erro: " + error.message;
+      }
+    });
+  </script>
+</body>
+</html>
