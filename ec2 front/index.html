@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Upload de Currículo</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #eef2f3, #8e9eab);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+    }
+    h2 {
+      margin-bottom: 1.5rem;
+      color: #333;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      text-align: left;
+      color: #555;
+    }
+    input[type="email"], 
+    input[type="file"] {
+      width: 100%;
+      padding: 0.8rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 0.8rem;
+      background-color: #2b7a78;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-top: 0.5rem;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #205e5c;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 1rem;
+      padding: 0.8rem;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .loading {
+      background-color: #e2e3e5;
+      color: #383d41;
+    }
+    .file-info {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Envie seu currículo em PDF</h2>
+    <form id="upload-form">
+      <label for="email">Email:</label>
+      <input type="email" id="email" name="email" required>
+      
+      <label for="fileInput">Currículo (PDF):</label>
+      <input type="file" id="fileInput" name="file" accept=".pdf" required>
+      <div id="fileSize" class="file-info"></div>
+      
+      <button type="submit" id="submit-btn">Enviar</button>
+    </form>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('upload-form');
+    const fileInput = document.getElementById('fileInput');
+    const statusDiv = document.getElementById('status');
+    const submitBtn = document.getElementById('submit-btn');
+    const fileSizeInfo = document.getElementById('fileSize');
+
+    // Show file size when selected
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const fileSizeMB = (file.size / (1024*1024)).toFixed(2);
+        fileSizeInfo.textContent = `Tamanho do arquivo: ${fileSizeMB} MB`;
+      } else {
+        fileSizeInfo.textContent = '';
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const file = fileInput.files[0];
+      const email = document.getElementById('email').value;
+      
+      if (!file || !email) {
+        showStatus("Preencha todos os campos.", 'error');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showStatus("O arquivo deve ter no máximo 5MB.", 'error');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      showStatus("Convertendo arquivo...", 'loading');
+
+      try {
+        // Read file as base64 with proper encoding
+        const fileContent = await readFileAsBase64(file);
+        
+        showStatus("Enviando para o servidor...", 'loading');
+        
+        const response = await fetch("https://59gaedxf5k.execute-api.us-east-1.amazonaws.com/prod/upload", {
+          method: "POST",
+          body: JSON.stringify({
+            email: email,
+            filename: file.name,
+            fileContent: fileContent
+          }),
+          headers: { 
+            "Content-Type": "application/json" 
+          }
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+          showStatus("Currículo enviado com sucesso!", 'success');
+          console.log("Server response:", result);
+        } else {
+          throw new Error(result.error || "Erro no servidor");
+        }
+      } catch (error) {
+        console.error("Upload error:", error);
+        showStatus(`Erro: ${error.message}`, 'error');
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    // Helper function to read file as base64
+    function readFileAsBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          // Remove data URL prefix (everything before the comma)
+          const content = e.target.result;
+          resolve(content.substring(content.indexOf(',') + 1));
+        };
+        reader.onerror = (error) => {
+          reject(new Error("Falha ao ler o arquivo"));
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Helper function to show status messages
+    function showStatus(message, type) {
+      statusDiv.textContent = message;
+      statusDiv.className = '';
+      statusDiv.classList.add(type);
+    }
+  </script>
+</body>
+</html>
