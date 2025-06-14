@@ -1,0 +1,6 @@
+FROM public.ecr.aws/lambda/python:3.11
+
+COPY requirements.txt /lambda/requirements.txt
+RUN pip install -t /python -r /lambda/requirements.txt
+
+WORKDIR /python
